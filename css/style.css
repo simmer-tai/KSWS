@@ -1,0 +1,239 @@
+:root {
+    --primary: #6366f1;
+    --primary-light: #818cf8;
+    --primary-dark: #4f46e5;
+    --bg: #f8fafc;
+    --glass: rgba(255, 255, 255, 0.8);
+    --glass-border: rgba(0, 0, 0, 0.1);
+    --text: #1e293b;
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+}
+
+body {
+    background-color: var(--bg);
+    color: var(--text);
+    font-family: 'Inter', system-ui, sans-serif;
+    height: 100vh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+/* フル画面キャンバス */
+#canvas-container {
+    flex: 1;
+    position: relative;
+    background-image: 
+        radial-gradient(circle at 2px 2px, rgba(0,0,0,0.05) 1px, transparent 0);
+    background-size: 40px 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+canvas {
+    touch-action: none;
+    max-width: 100%;
+    max-height: 100%;
+}
+
+/* モードタブ */
+.mode-tabs {
+    position: fixed;
+    top: 24px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    background: var(--glass);
+    backdrop-filter: blur(16px);
+    border: 1px solid var(--glass-border);
+    border-radius: 16px;
+    padding: 4px;
+    z-index: 200;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+}
+
+.tab-btn {
+    width: auto;
+    height: 36px;
+    padding: 0 20px;
+    font-size: 13px;
+    font-weight: 600;
+    border-radius: 12px;
+    color: var(--text);
+}
+
+.tab-btn.active {
+    background: var(--primary);
+    color: #ffffff;
+}
+
+/* サイドバー */
+.sidebar {
+    position: fixed;
+    top: 84px;
+    left: 24px;
+    width: 240px;
+    background: var(--glass);
+    backdrop-filter: blur(16px);
+    border: 1px solid var(--glass-border);
+    border-radius: 20px;
+    padding: 20px;
+    z-index: 150;
+    box-shadow: 0 8px 30px rgba(0,0,0,0.1);
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s;
+}
+
+.sidebar.hidden {
+    transform: translateX(-120%);
+    opacity: 0;
+    pointer-events: none;
+}
+
+.sidebar-content h3 {
+    font-size: 16px;
+    margin-bottom: 16px;
+    color: var(--text);
+}
+
+.control-group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.control-group label {
+    font-size: 12px;
+    color: #64748b;
+}
+
+/* ツールバーの表示制御 */
+.toolbar.hidden {
+    transform: translate(-50%, 150%);
+    opacity: 0;
+    pointer-events: none;
+}
+
+.paint-only.hidden {
+    display: none;
+}
+
+.toolbar {
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s;
+}
+
+/* ツールバー */
+.toolbar {
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 12px;
+    padding: 12px 20px;
+    background: var(--glass);
+    backdrop-filter: blur(16px);
+    border: 1px solid var(--glass-border);
+    border-radius: 24px;
+    box-shadow: 0 10px 25px -5px rgba(0,0,0,0.4);
+    z-index: 100;
+    align-items: center;
+}
+
+.tool-group {
+    display: flex;
+    gap: 8px;
+    padding: 0 8px;
+    border-right: 1px solid var(--glass-border);
+}
+.tool-group:last-child { border-right: none; }
+
+button {
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    border: none;
+    background: transparent;
+    color: var(--text);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+}
+
+button:hover { background: rgba(255,255,255,0.1); }
+button.active { 
+    background: var(--primary); 
+    color: #ffffff;
+}
+button:disabled { opacity: 0.3; cursor: not-allowed; }
+
+button svg { width: 20px; height: 20px; }
+
+/* ブラシサイズスライダー */
+.brush-control {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    width: 100px;
+}
+
+input[type="range"] {
+    width: 100%;
+    cursor: pointer;
+    accent-color: var(--primary);
+}
+
+.size-label { font-size: 10px; color: #94a3b8; }
+
+/* ヒント表示 */
+.hint {
+    position: fixed;
+    top: 24px;
+    left: 50%;
+    transform: translateX(-50%);
+    padding: 8px 16px;
+    background: rgba(0,0,0,0.3);
+    border-radius: 20px;
+    font-size: 12px;
+    color: #94a3b8;
+    pointer-events: none;
+}
+
+/* SVGダウンロードボタン（強調） */
+.btn-download {
+    background: var(--primary);
+    color: #ffffff;
+    width: auto;
+    padding: 0 16px;
+    font-size: 14px;
+    font-weight: 600;
+    gap: 8px;
+    border-radius: 12px;
+    border: none;
+    white-space: nowrap;
+}
+
+.btn-download:hover {
+    background: var(--primary-dark);
+}
+
+.btn-download.secondary {
+    background: var(--glass);
+    color: var(--text);
+    border: 1px solid var(--glass-border);
+    box-shadow: none;
+}
+
+.btn-download.secondary:hover {
+    background: var(--glass-border);
+}
