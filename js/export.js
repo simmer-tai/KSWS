@@ -30,9 +30,14 @@ window.flowerApp.getOutlinePaths = function() {
             const p = s.points[i];
             ctx.lineTo(getScaledX(p), getScaledY(p));
         }
-        ctx.lineWidth = s.width * 10;
-        ctx.strokeStyle = '#000000';
-        ctx.stroke();
+        
+        if (s.fill) {
+            ctx.closePath();
+            ctx.fill();
+        } else {
+            ctx.lineWidth = s.width * 10;
+            ctx.stroke();
+        }
     });
 
     // ユーザーが描いた線をシルエットに含める
