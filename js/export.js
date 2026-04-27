@@ -24,12 +24,7 @@ window.flowerApp.getOutlinePaths = function() {
         const getScaledX = (p) => cx + (p.x - cx) * scale;
         const getScaledY = (p) => cy + (p.y - cy) * scale;
 
-        const p0 = s.points[0];
-        ctx.moveTo(getScaledX(p0), getScaledY(p0));
-        for (let i = 1; i < s.points.length; i++) {
-            const p = s.points[i];
-            ctx.lineTo(getScaledX(p), getScaledY(p));
-        }
+        this.drawSmoothedPath(ctx, s.points, getScaledX, getScaledY);
         
         if (s.fill) {
             ctx.closePath();
@@ -44,10 +39,7 @@ window.flowerApp.getOutlinePaths = function() {
     this.strokes.forEach(s => {
         if (!s.points || s.points.length === 0) return;
         ctx.beginPath();
-        ctx.moveTo(s.points[0].x, s.points[0].y);
-        for(let i=1; i<s.points.length; i++) {
-            ctx.lineTo(s.points[i].x, s.points[i].y);
-        }
+        this.drawSmoothedPath(ctx, s.points, p => p.x, p => p.y);
         if (s.fill) {
             ctx.closePath();
             ctx.fill();

@@ -58,8 +58,19 @@
 
         // Pointer Events for Canvas
         app.canvas.addEventListener('pointerdown', startDrawing);
-        window.addEventListener('pointermove', moveDrawing);
+        window.addEventListener('pointermove', (e) => {
+            // カーソル表示用に位置を常に更新
+            app.mousePos = app.getInternalPos(e);
+            if (app.currentTool === 'eraser') {
+                app.render(); // 消しゴムカーソルの描画を更新
+            }
+            moveDrawing(e);
+        });
         window.addEventListener('pointerup', stopDrawing);
+        window.addEventListener('pointerleave', () => {
+            app.mousePos = null;
+            app.render();
+        });
 
         app.updateButtons();
 
@@ -160,11 +171,19 @@
 
     function moveDrawing(e) {
         if (!app.isDrawing) return;
-        const pos = clampPos(app.getInternalPos(e));
-        if (app.currentTool === 'pen') {
-            app.currentStroke.points.push(pos);
-        } else {
-            app.eraseAt(pos);
+        
+        // getCoalescedEventsを使用して中間イベントをすべて取得（高精度な描画のため）
+        const events = (e.getCoalescedEvents && e.getCoalescedEvents().length > 0) 
+            ? e.getCoalescedEvents() 
+            : [e];
+
+        for (const ev of events) {
+            const pos = clampPos(app.getInternalPos(ev));
+            if (app.currentTool === 'pen') {
+                app.currentStroke.points.push(pos);
+            } else {
+                app.eraseAt(pos);
+            }
         }
         app.render();
     }
