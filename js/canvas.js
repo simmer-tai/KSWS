@@ -349,82 +349,19 @@ window.flowerApp.floodFill = function(data, size, startX, startY) {
     }
 };
 
-// 線分と円の交点を計算する補助関数
-window.flowerApp.getSegmentCircleIntersections = function(p1, p2, center, radius) {
-    const dx = p2.x - p1.x;
-    const dy = p2.y - p1.y;
-    const a = dx * dx + dy * dy;
-    if (a === 0) return [];
-
-    const b = 2 * (dx * (p1.x - center.x) + dy * (p1.y - center.y));
-    const c = Math.pow(p1.x - center.x, 2) + Math.pow(p1.y - center.y, 2) - radius * radius;
-    const det = b * b - 4 * a * c;
-
-    if (det < 0) return [];
-    
-    const intersections = [];
-    const t1 = (-b - Math.sqrt(det)) / (2 * a);
-    const t2 = (-b + Math.sqrt(det)) / (2 * a);
-
-    if (t1 >= 0 && t1 <= 1) intersections.push({ x: p1.x + t1 * dx, y: p1.y + t1 * dy });
-    if (t2 >= 0 && t2 <= 1) intersections.push({ x: p1.x + t2 * dx, y: p1.y + t2 * dy });
-
-    return intersections;
-};
-
 window.flowerApp.eraseAt = function(pos) {
     const radius = this.lineWidth * 30;  // 消しゴムの半径
     let changed = false;
 
-    // 1. ストローク（線）の消去 - セグメントベースの切断ロジック
-    let nextStrokes = [];
-    this.strokes.forEach(stroke => {
-        let currentPoints = [];
-        const points = stroke.points;
-        
-        for (let i = 0; i < points.length; i++) {
-            const p = points[i];
-            const dist = Math.hypot(p.x - pos.x, p.y - pos.y);
-            const isInside = dist <= radius;
-
-            if (!isInside) {
-                // 点が外側にある場合
-                // 前の点が内側だったなら、交点から開始
-                if (i > 0) {
-                    const prev = points[i-1];
-                    if (Math.hypot(prev.x - pos.x, prev.y - pos.y) <= radius) {
-                        const inters = this.getSegmentCircleIntersections(prev, p, pos, radius);
-                        if (inters.length > 0) currentPoints.push(inters[0]);
-                    }
-                }
-                currentPoints.push(p);
-            } else {
-                // 点が内側にある場合
-                // 前の点が外側だったなら、交点までで現在のパーツを終了
-                if (i > 0) {
-                    const prev = points[i-1];
-                    if (Math.hypot(prev.x - pos.x, prev.y - pos.y) > radius) {
-                        const inters = this.getSegmentCircleIntersections(prev, p, pos, radius);
-                        if (inters.length > 0) {
-                            currentPoints.push(inters[0]);
-                        }
-                    }
-                }
-                if (currentPoints.length > 1) {
-                    nextStrokes.push({ ...stroke, points: currentPoints });
-                    changed = true;
-                }
-                currentPoints = [];
-                changed = true;
-            }
-        }
-        if (currentPoints.length > 1) {
-            nextStrokes.push({ ...stroke, points: currentPoints });
-        }
+    // 1. ストローク（線）の消去 - パス（ひと筆）単位で削除
+    const originalStrokeCount = this.strokes.length;
+    this.strokes = this.strokes.filter(stroke => {
+        // いずれかの点が消しゴムの半径内にあるかチェック
+        return !stroke.points.some(p => Math.hypot(p.x - pos.x, p.y - pos.y) <= radius);
     });
 
-    if (changed) {
-        this.strokes = nextStrokes;
+    if (this.strokes.length !== originalStrokeCount) {
+        changed = true;
     }
 
     // 2. 塗りつぶし（シード点）の消去
