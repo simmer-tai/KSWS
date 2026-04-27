@@ -8,6 +8,7 @@ window.flowerApp.UNIT_TO_MM = 0.1;
 
 // State
 window.flowerApp.strokes = [];
+window.flowerApp.eraserStrokes = []; // 消しゴムの軌跡（白）
 window.flowerApp.fixedStrokes = []; // 消去・編集不可能な固定要素
 window.flowerApp.fills = [];        // 塗りつぶしのシード点 [{x, y}]
 window.flowerApp.scale = 1;
@@ -136,42 +137,6 @@ window.flowerApp.render = function() {
     this.ctx.rect(this.offsetX, this.offsetY, this.INTERNAL_SIZE * this.scale, this.INTERNAL_SIZE * this.scale);
     this.ctx.clip();
 
-    // 塗りつぶしプレビューの描画 (重いため、必要な時のみ実行するか簡易化)
-    if (this.fills && this.fills.length > 0) {
-        const fCanvas = document.createElement('canvas');
-        fCanvas.width = this.INTERNAL_SIZE;
-        fCanvas.height = this.INTERNAL_SIZE;
-        const fCtx = fCanvas.getContext('2d');
-        
-        fCtx.fillStyle = 'black';
-        fCtx.strokeStyle = 'black';
-        fCtx.lineCap = 'round';
-        fCtx.lineJoin = 'round';
-
-        // 固定要素とストロークを一時キャンバスに描画
-        [...this.fixedStrokes, ...allStrokes].forEach(s => {
-            if (!s.points || s.points.length === 0) return;
-            fCtx.beginPath();
-            this.drawSmoothedPath(fCtx, s.points, p => p.x, p => p.y);
-            if (s.fill) { fCtx.closePath(); fCtx.fill(); }
-            else { fCtx.lineWidth = s.width * 10; fCtx.stroke(); }
-        });
-
-        const fData = fCtx.getImageData(0, 0, this.INTERNAL_SIZE, this.INTERNAL_SIZE);
-        this.fills.forEach(f => {
-            this.floodFill(fData.data, this.INTERNAL_SIZE, Math.round(f.x), Math.round(f.y));
-        });
-        fCtx.putImageData(fData, 0, 0);
-        this.lastFillData = fData; // 消しゴム判定用に保存
-
-        // プレビューとしてメインキャンバスに合成
-        this.ctx.globalAlpha = 1.0; 
-        this.ctx.drawImage(fCanvas, 0, 0, this.INTERNAL_SIZE, this.INTERNAL_SIZE, this.offsetX, this.offsetY, this.INTERNAL_SIZE * this.scale, this.INTERNAL_SIZE * this.scale);
-        this.ctx.globalAlpha = 1.0;
-    } else {
-        this.lastFillData = null;
-    }
-
     // 固定要素の描画
     this.fixedStrokes.forEach(stroke => {
         this.ctx.beginPath();
@@ -203,11 +168,44 @@ window.flowerApp.render = function() {
             this.ctx.fillStyle = '#000000';
             this.ctx.fill();
         } else {
-            this.ctx.lineWidth = stroke.width * this.scale * 10; // 倍率10倍を適用
+            this.ctx.lineWidth = stroke.width * this.scale * 10;
             this.ctx.strokeStyle = '#000000';
             this.ctx.stroke();
         }
     });
+
+    // 塗りつぶしプレビューの描画
+    if (this.fills && this.fills.length > 0) {
+        const fCanvas = document.createElement('canvas');
+        fCanvas.width = this.INTERNAL_SIZE;
+        fCanvas.height = this.INTERNAL_SIZE;
+        const fCtx = fCanvas.getContext('2d');
+        
+        fCtx.fillStyle = 'black';
+        fCtx.strokeStyle = 'black';
+        fCtx.lineCap = 'round';
+        fCtx.lineJoin = 'round';
+
+        // 固定要素とストロークを一時キャンバスに描画
+        [...this.fixedStrokes, ...allStrokes].forEach(s => {
+            if (!s.points || s.points.length === 0) return;
+            fCtx.beginPath();
+            this.drawSmoothedPath(fCtx, s.points, p => p.x, p => p.y);
+            if (s.fill) { fCtx.closePath(); fCtx.fill(); }
+            else { fCtx.lineWidth = s.width * 10; fCtx.stroke(); }
+        });
+
+        const fData = fCtx.getImageData(0, 0, this.INTERNAL_SIZE, this.INTERNAL_SIZE);
+        this.fills.forEach(f => {
+            this.floodFill(fData.data, this.INTERNAL_SIZE, Math.round(f.x), Math.round(f.y));
+        });
+        fCtx.putImageData(fData, 0, 0);
+
+        // プレビューとしてメインキャンバスに合成
+        this.ctx.globalAlpha = 1.0; 
+        this.ctx.drawImage(fCanvas, 0, 0, this.INTERNAL_SIZE, this.INTERNAL_SIZE, this.offsetX, this.offsetY, this.INTERNAL_SIZE * this.scale, this.INTERNAL_SIZE * this.scale);
+        this.ctx.globalAlpha = 1.0;
+    }
 
     // スライダーモードの花びら描画
     if (this.uiMode === 'slider') {
@@ -229,7 +227,6 @@ window.flowerApp.render = function() {
             const yHalfWidth = (width * 0.5 * size) * this.scale;
 
             this.ctx.moveTo(xBase, 0);
-            // 二次ベジェ曲線: 基点 -> 膨らみ(制御点) -> 先端
             this.ctx.quadraticCurveTo(xReach, yHalfWidth * 2, xTip, 0);
             this.ctx.quadraticCurveTo(xReach, -yHalfWidth * 2, xBase, 0);
             
@@ -237,6 +234,23 @@ window.flowerApp.render = function() {
             this.ctx.fill();
             this.ctx.restore();
         }
+    }
+
+    // --- 消しゴムストロークの描画（白で上書き） ---
+    this.eraserStrokes.forEach(stroke => {
+        this.ctx.beginPath();
+        this.drawSmoothedPath(this.ctx, stroke.points, p => this.offsetX + p.x * this.scale, p => this.offsetY + p.y * this.scale);
+        this.ctx.lineWidth = stroke.width * this.scale * 10;
+        this.ctx.strokeStyle = '#ffffff';
+        this.ctx.stroke();
+    });
+    // 現在描画中の消しゴム
+    if (this.isDrawing && this.currentEraserStroke) {
+        this.ctx.beginPath();
+        this.drawSmoothedPath(this.ctx, this.currentEraserStroke.points, p => this.offsetX + p.x * this.scale, p => this.offsetY + p.y * this.scale);
+        this.ctx.lineWidth = this.currentEraserStroke.width * this.scale * 10;
+        this.ctx.strokeStyle = '#ffffff';
+        this.ctx.stroke();
     }
 
     this.ctx.restore();
@@ -349,62 +363,4 @@ window.flowerApp.floodFill = function(data, size, startX, startY) {
     }
 };
 
-window.flowerApp.eraseAt = function(pos) {
-    const radius = this.lineWidth * 30;  // 消しゴムの半径
-    let changed = false;
-
-    // 1. ストローク（線）の消去 - パス（ひと筆）単位で削除
-    const originalStrokeCount = this.strokes.length;
-    this.strokes = this.strokes.filter(stroke => {
-        // いずれかの点が消しゴムの半径内にあるかチェック
-        return !stroke.points.some(p => Math.hypot(p.x - pos.x, p.y - pos.y) <= radius);
-    });
-
-    if (this.strokes.length !== originalStrokeCount) {
-        changed = true;
-    }
-
-    // 2. 塗りつぶし（シード点）の消去
-    // シード点そのものが近い場合、または塗りつぶし済みのエリアを触った場合に削除
-    const originalFillCount = this.fills.length;
-    
-    // 消しゴムの座標が前回の描画で塗りつぶされていたか確認
-    let isOnFilledArea = false;
-    if (this.lastFillData) {
-        const x = Math.round(pos.x);
-        const y = Math.round(pos.y);
-        if (x >= 0 && x < this.INTERNAL_SIZE && y >= 0 && y < this.INTERNAL_SIZE) {
-            const idx = (y * this.INTERNAL_SIZE + x) * 4 + 3;
-            if (this.lastFillData.data[idx] > 128) {
-                isOnFilledArea = true;
-            }
-        }
-    }
-
-    this.fills = this.fills.filter(f => {
-        // シード点そのものへの接触判定
-        const distToSeed = Math.hypot(f.x - pos.x, f.y - pos.y);
-        if (distToSeed <= radius) return false;
-
-        // 塗りつぶしエリア内での消去判定
-        if (isOnFilledArea) {
-            // シード点も同じ塗りつぶしエリア内にあるか確認
-            const fx = Math.round(f.x);
-            const fy = Math.round(f.y);
-            const fidx = (fy * this.INTERNAL_SIZE + fx) * 4 + 3;
-            if (this.lastFillData.data[fidx] > 128) {
-                // 同じ塗りつぶしエリアに属するシードとみなして削除
-                return false;
-            }
-        }
-        return true;
-    });
-
-    if (this.fills.length !== originalFillCount) {
-        changed = true;
-    }
-
-    if (changed) {
-        this.render();
-    }
 };

@@ -159,12 +159,11 @@
         }
 
         app.isDrawing = true;
+        app.saveState();
         if (app.currentTool === 'pen') {
-            app.saveState();
             app.currentStroke = { points: [pos], width: app.lineWidth };
-        } else {
-            app.saveState();
-            app.eraseAt(pos);
+        } else if (app.currentTool === 'eraser') {
+            app.currentEraserStroke = { points: [pos], width: app.lineWidth };
         }
         app.render();
     }
@@ -181,8 +180,8 @@
             const pos = clampPos(app.getInternalPos(ev));
             if (app.currentTool === 'pen') {
                 app.currentStroke.points.push(pos);
-            } else {
-                app.eraseAt(pos);
+            } else if (app.currentTool === 'eraser') {
+                app.currentEraserStroke.points.push(pos);
             }
         }
         app.render();
@@ -194,6 +193,10 @@
         if (app.currentStroke) {
             app.strokes.push(app.currentStroke);
             app.currentStroke = null;
+        }
+        if (app.currentEraserStroke) {
+            app.eraserStrokes.push(app.currentEraserStroke);
+            app.currentEraserStroke = null;
         }
         app.render();
         app.updateButtons();

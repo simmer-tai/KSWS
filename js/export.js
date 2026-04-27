@@ -76,6 +76,17 @@ window.flowerApp.getOutlinePaths = function() {
         }
     }
 
+    // --- 消しゴムストロークをシルエットから除去 ---
+    ctx.globalCompositeOperation = 'destination-out';
+    this.eraserStrokes.forEach(s => {
+        if (!s.points || s.points.length === 0) return;
+        ctx.beginPath();
+        this.drawSmoothedPath(ctx, s.points, p => p.x, p => p.y);
+        ctx.lineWidth = s.width * 10;
+        ctx.stroke();
+    });
+    ctx.globalCompositeOperation = 'source-over';
+
     const imgData = ctx.getImageData(0, 0, size, size);
     const data = imgData.data;
 
