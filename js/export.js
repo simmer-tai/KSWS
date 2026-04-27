@@ -87,6 +87,20 @@ window.flowerApp.getOutlinePaths = function() {
     });
     ctx.globalCompositeOperation = 'source-over';
 
+    // --- 消去された fixedStrokes をシルエットに復元 ---
+    this.fixedStrokes.forEach(s => {
+        if (!s.points || s.points.length === 0) return;
+        ctx.beginPath();
+        this.drawSmoothedPath(ctx, s.points, p => p.x, p => p.y);
+        if (s.fill) {
+            ctx.closePath();
+            ctx.fill();
+        } else {
+            ctx.lineWidth = s.width * 10;
+            ctx.stroke();
+        }
+    });
+
     const imgData = ctx.getImageData(0, 0, size, size);
     const data = imgData.data;
 

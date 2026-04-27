@@ -253,6 +253,27 @@ window.flowerApp.render = function() {
         this.ctx.stroke();
     }
 
+    // --- 消しゴムで消された fixedStrokes を復元（上書き再描画） ---
+    this.fixedStrokes.forEach(stroke => {
+        this.ctx.beginPath();
+        const s = (this.uiMode === 'slider') ? this.petalParams.size : 1.0;
+        const cx = 300, cy = 300;
+        const getScaledX = (p) => this.offsetX + (cx + (p.x - cx) * s) * this.scale;
+        const getScaledY = (p) => this.offsetY + (cy + (p.y - cy) * s) * this.scale;
+
+        this.drawSmoothedPath(this.ctx, stroke.points, getScaledX, getScaledY);
+        
+        if (stroke.fill) {
+            this.ctx.closePath();
+            this.ctx.fillStyle = '#000000';
+            this.ctx.fill();
+        } else {
+            this.ctx.lineWidth = stroke.width * this.scale * 10;
+            this.ctx.strokeStyle = '#000000';
+            this.ctx.stroke();
+        }
+    });
+
     this.ctx.restore();
 
     // 寸法の描画 (60mm x 60mm)
