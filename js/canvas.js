@@ -151,10 +151,15 @@ window.flowerApp.render = function() {
         // 固定要素とストロークを一時キャンバスに描画
         [...this.fixedStrokes, ...allStrokes].forEach(s => {
             if (!s.points || s.points.length === 0) return;
+            fCtx.save();
+            if (s.isEraser) {
+                fCtx.globalCompositeOperation = 'destination-out';
+            }
             fCtx.beginPath();
             this.drawSmoothedPath(fCtx, s.points, p => p.x, p => p.y);
             if (s.fill) { fCtx.closePath(); fCtx.fill(); }
             else { fCtx.lineWidth = s.width * 10; fCtx.stroke(); }
+            fCtx.restore();
         });
 
         const fData = fCtx.getImageData(0, 0, this.INTERNAL_SIZE, this.INTERNAL_SIZE);
@@ -351,44 +356,62 @@ window.flowerApp.floodFill = function(data, size, startX, startY) {
 
 // 塗りつぶし（シード点）の消去のみを行う関数
 window.flowerApp.eraseFillOnly = function(pos) {
-    const radius = this.lineWidth * 30;  // 消去判定の半径
+    if (!this.lastFillData) return;
+
+    const radius = this.lineWidth * 30;
+    const size = this.INTERNAL_SIZE;
+    const data = this.lastFillData.data;
     let changed = false;
 
+    // 1. 直接シード点を消す判定
     const originalFillCount = this.fills.length;
-    
-    // 消しゴムの座標が前回の描画で塗りつぶされていたか確認
-    let isOnFilledArea = false;
-    if (this.lastFillData) {
-        const x = Math.round(pos.x);
-        const y = Math.round(pos.y);
-        if (x >= 0 && x < this.INTERNAL_SIZE && y >= 0 && y < this.INTERNAL_SIZE) {
-            const idx = (y * this.INTERNAL_SIZE + x) * 4 + 3;
-            if (this.lastFillData.data[idx] > 128) {
-                isOnFilledArea = true;
+    this.fills = this.fills.filter(f => Math.hypot(f.x - pos.x, f.y - pos.y) > radius);
+    if (this.fills.length !== originalFillCount) changed = true;
+
+    // 2. 塗りつぶされた「面」に触れた場合の連動消去
+    // 消しゴムの範囲内のいずれかのピクセルが塗りつぶされているか確認
+    let hitX = -1, hitY = -1;
+    for (let dy = -radius; dy <= radius; dy += 10) { // パフォーマンスのため粗めにスキャン
+        for (let dx = -radius; dx <= radius; dx += 10) {
+            if (dx*dx + dy*dy > radius*radius) continue;
+            const x = Math.round(pos.x + dx);
+            const y = Math.round(pos.y + dy);
+            if (x >= 0 && x < size && y >= 0 && y < size) {
+                if (data[(y * size + x) * 4 + 3] > 128) {
+                    hitX = x; hitY = y;
+                    break;
+                }
             }
         }
+        if (hitX !== -1) break;
     }
 
-    this.fills = this.fills.filter(f => {
-        // シード点そのものへの接触判定
-        const distToSeed = Math.hypot(f.x - pos.x, f.y - pos.y);
-        if (distToSeed <= radius) return false;
+    if (hitX !== -1) {
+        // ヒットしたエリアの連結成分を探索し、そこに含まれるシード点をすべて削除
+        const stack = [[hitX, hitY]];
+        const visited = new Uint8Array(size * size);
+        const seedsToRemove = new Set();
+        
+        while (stack.length > 0) {
+            const [cx, cy] = stack.pop();
+            if (cx < 0 || cx >= size || cy < 0 || cy >= size) continue;
+            const idx = cy * size + cx;
+            if (visited[idx] || data[idx * 4 + 3] <= 128) continue;
+            visited[idx] = 1;
 
-        // 塗りつぶしエリア内での消去判定
-        if (isOnFilledArea) {
-            const fx = Math.round(f.x);
-            const fy = Math.round(f.y);
-            const fidx = (fy * this.INTERNAL_SIZE + fx) * 4 + 3;
-            if (this.lastFillData.data[fidx] > 128) {
-                // 同じ塗りつぶしエリアに属するシードとみなして削除
-                return false;
+            // このエリアが塗りつぶされているなら、その中のシードを探す
+            // (効率のため、すべてのシードについてvisitedを後でチェックする)
+            if (stack.length < 5000) { // 探索範囲の安全制限
+                stack.push([cx + 2, cy], [cx - 2, cy], [cx, cy + 2], [cx, cy - 2]); // 粗めに探索
             }
         }
-        return true;
-    });
 
-    if (this.fills.length !== originalFillCount) {
-        changed = true;
+        const prevCount = this.fills.length;
+        this.fills = this.fills.filter(f => {
+            const fidx = Math.round(f.y) * size + Math.round(f.x);
+            return !visited[fidx];
+        });
+        if (this.fills.length !== prevCount) changed = true;
     }
 
     if (changed) {
