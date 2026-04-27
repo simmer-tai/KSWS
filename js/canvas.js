@@ -203,8 +203,8 @@ window.flowerApp.render = function() {
             this.ctx.fillStyle = '#000000';
             this.ctx.fill();
         } else {
-            this.ctx.lineWidth = stroke.width * this.scale * 10; // 倍率10倍を適用
-            this.ctx.strokeStyle = '#000000';
+            this.ctx.lineWidth = stroke.width * this.scale * 10;
+            this.ctx.strokeStyle = stroke.isEraser ? '#ffffff' : '#000000'; // 消しゴムなら白で描画
             this.ctx.stroke();
         }
     });
@@ -349,86 +349,11 @@ window.flowerApp.floodFill = function(data, size, startX, startY) {
     }
 };
 
-// 線分と円の交点を計算する補助関数
-window.flowerApp.getSegmentCircleIntersections = function(p1, p2, center, radius) {
-    const dx = p2.x - p1.x;
-    const dy = p2.y - p1.y;
-    const a = dx * dx + dy * dy;
-    if (a === 0) return [];
-
-    const b = 2 * (dx * (p1.x - center.x) + dy * (p1.y - center.y));
-    const c = Math.pow(p1.x - center.x, 2) + Math.pow(p1.y - center.y, 2) - radius * radius;
-    const det = b * b - 4 * a * c;
-
-    if (det < 0) return [];
-    
-    const intersections = [];
-    const t1 = (-b - Math.sqrt(det)) / (2 * a);
-    const t2 = (-b + Math.sqrt(det)) / (2 * a);
-
-    if (t1 >= 0 && t1 <= 1) intersections.push({ x: p1.x + t1 * dx, y: p1.y + t1 * dy });
-    if (t2 >= 0 && t2 <= 1) intersections.push({ x: p1.x + t2 * dx, y: p1.y + t2 * dy });
-
-    return intersections;
-};
-
-window.flowerApp.eraseAt = function(pos) {
-    const radius = this.lineWidth * 30;  // 消しゴムの半径
+// 塗りつぶし（シード点）の消去のみを行う関数
+window.flowerApp.eraseFillOnly = function(pos) {
+    const radius = this.lineWidth * 30;  // 消去判定の半径
     let changed = false;
 
-    // 1. ストローク（線）の消去 - セグメントベースの切断ロジック
-    let nextStrokes = [];
-    this.strokes.forEach(stroke => {
-        let currentPoints = [];
-        const points = stroke.points;
-        
-        for (let i = 0; i < points.length; i++) {
-            const p = points[i];
-            const dist = Math.hypot(p.x - pos.x, p.y - pos.y);
-            const isInside = dist <= radius;
-
-            if (!isInside) {
-                // 点が外側にある場合
-                // 前の点が内側だったなら、交点から開始
-                if (i > 0) {
-                    const prev = points[i-1];
-                    if (Math.hypot(prev.x - pos.x, prev.y - pos.y) <= radius) {
-                        const inters = this.getSegmentCircleIntersections(prev, p, pos, radius);
-                        if (inters.length > 0) currentPoints.push(inters[0]);
-                    }
-                }
-                currentPoints.push(p);
-            } else {
-                // 点が内側にある場合
-                // 前の点が外側だったなら、交点までで現在のパーツを終了
-                if (i > 0) {
-                    const prev = points[i-1];
-                    if (Math.hypot(prev.x - pos.x, prev.y - pos.y) > radius) {
-                        const inters = this.getSegmentCircleIntersections(prev, p, pos, radius);
-                        if (inters.length > 0) {
-                            currentPoints.push(inters[0]);
-                        }
-                    }
-                }
-                if (currentPoints.length > 1) {
-                    nextStrokes.push({ ...stroke, points: currentPoints });
-                    changed = true;
-                }
-                currentPoints = [];
-                changed = true;
-            }
-        }
-        if (currentPoints.length > 1) {
-            nextStrokes.push({ ...stroke, points: currentPoints });
-        }
-    });
-
-    if (changed) {
-        this.strokes = nextStrokes;
-    }
-
-    // 2. 塗りつぶし（シード点）の消去
-    // シード点そのものが近い場合、または塗りつぶし済みのエリアを触った場合に削除
     const originalFillCount = this.fills.length;
     
     // 消しゴムの座標が前回の描画で塗りつぶされていたか確認
@@ -451,7 +376,6 @@ window.flowerApp.eraseAt = function(pos) {
 
         // 塗りつぶしエリア内での消去判定
         if (isOnFilledArea) {
-            // シード点も同じ塗りつぶしエリア内にあるか確認
             const fx = Math.round(f.x);
             const fy = Math.round(f.y);
             const fidx = (fy * this.INTERNAL_SIZE + fx) * 4 + 3;
