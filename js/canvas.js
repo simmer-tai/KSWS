@@ -306,6 +306,7 @@ window.flowerApp.render = function() {
     this.ctx.strokeRect(
         this.offsetX + (this.INTERNAL_SIZE - sw) / 2 * this.scale,
         this.offsetY + (this.INTERNAL_SIZE - sh) / 2 * this.scale,
+        sw * this.scale,
         sh * this.scale
     );
 
