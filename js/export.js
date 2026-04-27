@@ -76,14 +76,30 @@ window.flowerApp.getOutlinePaths = function() {
         }
     }
 
-    // --- 消しゴムストロークをシルエットから除去 ---
-    ctx.globalCompositeOperation = 'destination-out';
-    this.eraserStrokes.forEach(s => {
-        if (!s.points || s.points.length === 0) return;
+    // --- ペンと消しゴムを時系列順にインターリーブして描画 ---
+    const layers = [
+        ...this.strokes.map(s => ({ ...s, type: 'pen' })),
+        ...this.eraserStrokes.map(s => ({ ...s, type: 'eraser' }))
+    ];
+    layers.sort((a, b) => (a.id || 0) - (b.id || 0));
+
+    layers.forEach(layer => {
+        if (!layer.points || layer.points.length === 0) return;
+        if (layer.type === 'eraser') {
+            ctx.globalCompositeOperation = 'destination-out';
+        } else {
+            ctx.globalCompositeOperation = 'source-over';
+        }
+
         ctx.beginPath();
-        this.drawSmoothedPath(ctx, s.points, p => p.x, p => p.y);
-        ctx.lineWidth = s.width * 10;
-        ctx.stroke();
+        this.drawSmoothedPath(ctx, layer.points, p => p.x, p => p.y);
+        if (layer.fill) {
+            ctx.closePath();
+            ctx.fill();
+        } else {
+            ctx.lineWidth = layer.width * 10;
+            ctx.stroke();
+        }
     });
     ctx.globalCompositeOperation = 'source-over';
 

@@ -161,9 +161,19 @@
         app.isDrawing = true;
         app.saveState();
         if (app.currentTool === 'pen') {
-            app.currentStroke = { points: [pos], width: app.lineWidth };
+            app.currentStroke = { 
+                id: app.strokeCounter++, 
+                points: [pos], 
+                width: app.lineWidth, 
+                type: 'pen' 
+            };
         } else if (app.currentTool === 'eraser') {
-            app.currentEraserStroke = { points: [pos], width: app.lineWidth };
+            app.currentEraserStroke = { 
+                id: app.strokeCounter++, 
+                points: [pos], 
+                width: app.lineWidth, 
+                type: 'eraser' 
+            };
         }
         app.render();
     }
