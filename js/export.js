@@ -38,10 +38,6 @@ window.flowerApp.getOutlinePaths = function() {
     // ユーザーが描いた線をシルエットに含める
     this.strokes.forEach(s => {
         if (!s.points || s.points.length === 0) return;
-        ctx.save();
-        if (s.isEraser) {
-            ctx.globalCompositeOperation = 'destination-out';
-        }
         ctx.beginPath();
         this.drawSmoothedPath(ctx, s.points, p => p.x, p => p.y);
         if (s.fill) {
@@ -51,7 +47,6 @@ window.flowerApp.getOutlinePaths = function() {
             ctx.lineWidth = s.width * 10;
             ctx.stroke();
         }
-        ctx.restore();
     });
 
     // スライダーモードの花びらをシルエットに含める

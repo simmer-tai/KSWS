@@ -159,19 +159,12 @@
         }
 
         app.isDrawing = true;
-        if (app.currentTool === 'pen' || app.currentTool === 'eraser') {
+        if (app.currentTool === 'pen') {
             app.saveState();
-            app.currentStroke = { 
-                points: [pos], 
-                width: app.lineWidth, 
-                isEraser: (app.currentTool === 'eraser') 
-            };
-            if (app.currentTool === 'eraser') {
-                app.eraseFillOnly(pos);
-            }
+            app.currentStroke = { points: [pos], width: app.lineWidth };
         } else {
             app.saveState();
-            // バケットツールなどの他ツールの処理（現状はstartDrawing内で完結）
+            app.eraseAt(pos);
         }
         app.render();
     }
@@ -186,11 +179,10 @@
 
         for (const ev of events) {
             const pos = clampPos(app.getInternalPos(ev));
-            if (app.currentTool === 'pen' || app.currentTool === 'eraser') {
+            if (app.currentTool === 'pen') {
                 app.currentStroke.points.push(pos);
-                if (app.currentTool === 'eraser') {
-                    app.eraseFillOnly(pos);
-                }
+            } else {
+                app.eraseAt(pos);
             }
         }
         app.render();
